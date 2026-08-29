@@ -1,0 +1,20 @@
+{
+  "name": "codex-usage",
+  "version": "0.1.0+codex.20260828224926",
+  "description": "Runs a local title-bar HUD for Codex usage and public reset status.",
+  "author": {
+    "name": "Jay Hilwig"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex Usage",
+    "shortDescription": "Show usage and reset status beside the Codex title bar.",
+    "longDescription": "Starts and manages a private native companion overlay that follows the Codex window without modifying the installed Codex app.",
+    "developerName": "Jay Hilwig",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive"
+    ],
+    "defaultPrompt": "Start Codex Usage."
+  }
+}
