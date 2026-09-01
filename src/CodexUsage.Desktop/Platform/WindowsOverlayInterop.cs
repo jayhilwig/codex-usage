@@ -5,12 +5,22 @@ namespace CodexUsage.Desktop.Platform;
 internal static class WindowsOverlayInterop
 {
     private const int GwlpHwndParent = -8;
+    private const int GwlStyle = -16;
     private const int GwlExStyle = -20;
+    private const long WsPopup = unchecked((long)0x80000000);
+    private const long WsCaption = 0x00C00000L;
+    private const long WsThickFrame = 0x00040000L;
+    private const long WsSysMenu = 0x00080000L;
+    private const long WsMinimizeBox = 0x00020000L;
+    private const long WsMaximizeBox = 0x00010000L;
     private const long WsExToolWindow = 0x00000080L;
     private const long WsExNoActivate = 0x08000000L;
     private const uint SwpNoActivate = 0x0010;
     private const uint SwpNoZOrder = 0x0004;
     private const uint SwpShowWindow = 0x0040;
+    private const uint SwpFrameChanged = 0x0020;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoSize = 0x0001;
 
     public static void ConfigureHud(nint hudWindow, nint codexWindow)
     {
@@ -20,8 +30,19 @@ internal static class WindowsOverlayInterop
         }
 
         SetWindowLongPtr(hudWindow, GwlpHwndParent, codexWindow);
+        var style = GetWindowLongPtr(hudWindow, GwlStyle).ToInt64();
+        style = (style & ~(WsCaption | WsThickFrame | WsSysMenu | WsMinimizeBox | WsMaximizeBox)) | WsPopup;
+        SetWindowLongPtr(hudWindow, GwlStyle, new nint(style));
         var styles = GetWindowLongPtr(hudWindow, GwlExStyle).ToInt64();
         SetWindowLongPtr(hudWindow, GwlExStyle, new nint(styles | WsExToolWindow | WsExNoActivate));
+        SetWindowPos(
+            hudWindow,
+            nint.Zero,
+            0,
+            0,
+            0,
+            0,
+            SwpNoActivate | SwpNoZOrder | SwpFrameChanged | SwpNoMove | SwpNoSize);
     }
 
     public static void Position(nint window, int x, int y, int width, int height)
@@ -66,4 +87,5 @@ internal static class WindowsOverlayInterop
         int width,
         int height,
         uint flags);
+
 }

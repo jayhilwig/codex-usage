@@ -3,9 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Platform;
 using Avalonia.Threading;
 using CodexUsage.Core.Reset;
+using L = CodexUsage.Core.Localization.Localization;
 using CodexUsage.Core.Ui;
 using CodexUsage.Core.Window;
 using CodexUsage.Desktop.Platform;
@@ -18,6 +18,8 @@ internal sealed class TitlebarHudWindow : Window
     private const double HudHeight = 30;
     private readonly HudViewModel _viewModel;
     private readonly ICodexWindowTracker _tracker;
+    private readonly IPlatformHudHost _platformHud;
+    private readonly Border _surfaceRoot;
     private readonly Border _usageButton;
     private readonly Border _resetButton;
     private readonly TextBlock _fiveHourText;
@@ -38,6 +40,7 @@ internal sealed class TitlebarHudWindow : Window
     {
         _viewModel = viewModel;
         _tracker = tracker;
+        _platformHud = PlatformHudHostFactory.Create();
         Width = HudWidth;
         Height = HudHeight;
         MinWidth = HudWidth;
@@ -50,11 +53,7 @@ internal sealed class TitlebarHudWindow : Window
         Topmost = false;
         WindowDecorations = Avalonia.Controls.WindowDecorations.None;
         WindowStartupLocation = WindowStartupLocation.Manual;
-        Background = Brushes.Transparent;
-        TransparencyBackgroundFallback = Brushes.Transparent;
-        TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
-        ExtendClientAreaToDecorationsHint = true;
-        UseLayoutRounding = true;
+        _platformHud.Initialize(this);
 
         _fiveHourText = MakeHudText("5h --");
         _separatorText = MakeHudText(" · ");
@@ -71,8 +70,8 @@ internal sealed class TitlebarHudWindow : Window
         };
         _usageButton = MakeHudButton(usageLine, new Thickness(5, 0, 4, 0), ToggleUsagePopover);
         _resetButton = MakeHudButton(_resetText, new Thickness(4, 0, 5, 0), ToggleResetPopover);
-        ToolTip.SetTip(_usageButton, "Codex usage remaining");
-        ToolTip.SetTip(_resetButton, "Latest Codex reset unavailable");
+        ToolTip.SetTip(_usageButton, L.Get("UsageRemaining"));
+        ToolTip.SetTip(_resetButton, L.Get("ResetUnavailable"));
 
         var panel = new StackPanel
         {
@@ -86,11 +85,19 @@ internal sealed class TitlebarHudWindow : Window
         var exit = new MenuItem { Header = "Exit Codex Usage" };
         exit.Click += (_, _) => shutdown();
         panel.ContextMenu = new ContextMenu { Items = { exit } };
-        Content = panel;
+        _surfaceRoot = new Border
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Child = panel,
+        };
+        _platformHud.ConfigureRoot(_surfaceRoot);
+        Content = _surfaceRoot;
 
         _usagePopover = new UsagePopoverWindow();
         _resetPopover = new ResetPopoverWindow();
         _viewModel.Changed += (_, _) => Dispatcher.UIThread.Post(ApplyViewModel);
+        L.Changed += (_, _) => Dispatcher.UIThread.Post(ApplyViewModel);
 
         Opened += (_, _) => ConfigureNativeWindow();
         _trackerTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(100), DispatcherPriority.Normal, TrackTarget);
@@ -98,21 +105,18 @@ internal sealed class TitlebarHudWindow : Window
         ApplyViewModel();
     }
 
-    private static TextBlock MakeHudText(string text)
+    private TextBlock MakeHudText(string text)
     {
         var textBlock = new TextBlock
         {
             Text = text,
-            FontFamily = new FontFamily("Segoe UI"),
             FontSize = 11,
             FontWeight = FontWeight.Normal,
             LineHeight = 13,
             UseLayoutRounding = true,
             VerticalAlignment = VerticalAlignment.Center,
         };
-        TextOptions.SetTextRenderingMode(textBlock, TextRenderingMode.SubpixelAntialias);
-        TextOptions.SetTextHintingMode(textBlock, TextHintingMode.Strong);
-        TextOptions.SetBaselinePixelAlignment(textBlock, BaselinePixelAlignment.Aligned);
+        _platformHud.ConfigureText(textBlock);
         return textBlock;
     }
 
@@ -219,33 +223,15 @@ internal sealed class TitlebarHudWindow : Window
         var scale = Math.Max(1, target.DisplayScale);
         var width = (int)Math.Round(HudWidth * scale);
         var height = (int)Math.Round(HudHeight * scale);
-        var margin = (int)Math.Round(8 * scale);
-        int x;
-        int y;
-
-        if (target.CaptionButtons is { } buttons && buttons.Width > 0 && buttons.Height > 0)
-        {
-            x = target.Bounds.Left + buttons.Left - margin - width;
-            y = target.Bounds.Top + buttons.Top + Math.Max(0, (buttons.Height - height) / 2);
-        }
-        else
-        {
-            var nativeButtonGroupWidth = (int)Math.Round(138 * scale);
-            x = target.Bounds.Right - nativeButtonGroupWidth - margin - width;
-            y = target.Bounds.Top + (int)Math.Round(5 * scale);
-        }
-
-        x = Math.Max(target.Bounds.Left + margin, x);
-        Position = new PixelPoint(x, y);
+        var position = _platformHud.GetPosition(target, width, height);
+        _platformHud.Position(this, position.X, position.Y, width, height);
         if (!IsVisible)
         {
             Show();
             ConfigureNativeWindow();
         }
 
-        var handle = TryGetPlatformHandle()?.Handle ?? nint.Zero;
-        WindowsOverlayInterop.Position(handle, x, y, width, height);
-        PositionPopovers(x, y, width, height, scale);
+        PositionPopovers(position.X, position.Y, width, height, scale);
     }
 
     private void PositionPopovers(int x, int y, int width, int height, double scale)
@@ -271,8 +257,7 @@ internal sealed class TitlebarHudWindow : Window
             return;
         }
 
-        var handle = TryGetPlatformHandle()?.Handle ?? nint.Zero;
-        WindowsOverlayInterop.ConfigureHud(handle, _target.NativeHandle);
+        _platformHud.ConfigureNativeWindow(this, _target);
     }
 
     private void ToggleUsagePopover()
@@ -304,16 +289,16 @@ internal sealed class TitlebarHudWindow : Window
     private void ApplyViewModel()
     {
         _fiveHourText.Text = _viewModel.Usage?.FiveHour is { } five
-            ? $"5h {five.RemainingPercent}%"
-            : "5h --";
+            ? $"{L.Get("FiveHour")} {five.RemainingPercent}%"
+            : $"{L.Get("FiveHour")} --";
         _weeklyText.Text = _viewModel.Usage?.Weekly is { } weekly
             ? $"W {weekly.RemainingPercent}%"
             : "W --";
         ToolTip.SetTip(
             _resetButton,
             _viewModel.LatestReset is { } latest
-                ? $"Last reset: {HudViewModel.FormatAge(latest.AnnouncedAt, DateTimeOffset.UtcNow)}"
-                : "Latest Codex reset unavailable");
+                ? L.Get("LastReset", HudViewModel.FormatAge(latest.AnnouncedAt, DateTimeOffset.UtcNow))
+                : L.Get("ResetUnavailable"));
         _usagePopover.Update(_viewModel);
         _resetPopover.Update(_viewModel);
         ApplyTheme();
@@ -322,6 +307,7 @@ internal sealed class TitlebarHudWindow : Window
     private void ApplyTheme()
     {
         var text = Color.Parse(_dark ? "#A6ABAF" : "#7E8489");
+        _platformHud.ApplyTheme(this, _surfaceRoot, _target);
         _separatorText.Foreground = new SolidColorBrush(text);
         _fiveHourText.Foreground = MakeQuotaBrush(
             QuotaStatusEvaluator.EvaluateFiveHour(_viewModel.Usage?.FiveHour),

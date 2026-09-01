@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using L = CodexUsage.Core.Localization.Localization;
 using CodexUsage.Core.Ui;
 
 namespace CodexUsage.Desktop.Ui;
@@ -16,12 +17,12 @@ internal sealed class ResetPopoverWindow : CompanionPopoverWindow
     {
         var now = DateTimeOffset.UtcNow;
         var content = new StackPanel { Spacing = 6 };
-        content.Children.Add(MakeTitle("Latest Codex reset"));
+        content.Children.Add(MakeTitle(L.Get("LatestReset")));
 
         if (viewModel.LatestReset is { } latest)
         {
             content.Children.Add(MakeBody(
-                latest.AnnouncedAt.ToLocalTime().ToString("MMM d, yyyy 'at' h:mm tt")));
+                latest.AnnouncedAt.ToLocalTime().ToString("g", L.Culture)));
             content.Children.Add(MakeSecondary(HudViewModel.FormatLongAge(latest.AnnouncedAt, now)));
             var summary = MakeBody(HudViewModel.SummarizeAnnouncement(latest.Text));
             summary.TextWrapping = TextWrapping.Wrap;
@@ -34,7 +35,7 @@ internal sealed class ResetPopoverWindow : CompanionPopoverWindow
             {
                 var link = new Button
                 {
-                    Content = "View Source →",
+                    Content = $"{L.Get("ViewSource")} →",
                     HorizontalAlignment = HorizontalAlignment.Left,
                     Padding = new Avalonia.Thickness(0, 2, 0, 0),
                     Background = Brushes.Transparent,
@@ -50,7 +51,7 @@ internal sealed class ResetPopoverWindow : CompanionPopoverWindow
         }
         else
         {
-            content.Children.Add(MakeBody("Reset event unavailable"));
+            content.Children.Add(MakeBody(L.Get("ResetUnavailable")));
         }
 
         SetCard(content);

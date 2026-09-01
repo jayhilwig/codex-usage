@@ -4,6 +4,8 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Automation;
+using L = CodexUsage.Core.Localization.Localization;
 using CodexUsage.Core.Ui;
 
 namespace CodexUsage.Desktop.Ui;
@@ -18,17 +20,22 @@ internal sealed class UsagePopoverWindow : CompanionPopoverWindow
     {
         var now = DateTimeOffset.UtcNow;
         var content = new StackPanel { Spacing = 7 };
-        content.Children.Add(MakeTitle("Usage remaining"));
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        header.Children.Add(MakeTitle(L.Get("UsageRemaining")));
+        var localeButton = MakeLocaleButton();
+        Grid.SetColumn(localeButton, 1);
+        header.Children.Add(localeButton);
+        content.Children.Add(header);
 
         if (viewModel.Usage is { } usage
             && (usage.FiveHour is not null || usage.Weekly is not null))
         {
-            content.Children.Add(MakeUsageRow("5h", usage.FiveHour, now));
-            content.Children.Add(MakeUsageRow("Weekly", usage.Weekly, now));
+            content.Children.Add(MakeUsageRow(L.Get("FiveHour"), usage.FiveHour, now));
+            content.Children.Add(MakeUsageRow(L.Get("Weekly"), usage.Weekly, now));
         }
         else
         {
-            content.Children.Add(MakeBody("Codex usage is temporarily unavailable."));
+            content.Children.Add(MakeBody(L.Get("WaitingForAccount")));
         }
 
         if (viewModel.Usage?.Credits is { } credits)
@@ -45,13 +52,58 @@ internal sealed class UsagePopoverWindow : CompanionPopoverWindow
         SetCard(content);
     }
 
+    private static Button MakeLocaleButton()
+    {
+        var button = new Button
+        {
+            Content = LocaleFlag(L.Locale),
+            FontSize = 13,
+            Padding = new Thickness(3, 0),
+            MinWidth = 22,
+            Height = 20,
+            Background = Brushes.Transparent,
+            BorderBrush = new SolidColorBrush(Color.Parse("#59339CFF")),
+            BorderThickness = new Thickness(1),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+            Cursor = new Cursor(StandardCursorType.Hand),
+        };
+        AutomationProperties.SetName(button, "Locale");
+        var menu = new ContextMenu();
+        foreach (var (locale, name) in new[]
+        {
+            ("en", "English"), ("de", "Deutsch"), ("ja", "日本語"), ("fr", "Français"), ("es", "Español"),
+        })
+        {
+            var item = new MenuItem { Header = $"{LocaleFlag(locale)}  {name}" };
+            item.Click += (_, _) =>
+            {
+                L.SetLocale(locale);
+                LocalePreferences.Write(locale);
+            };
+            menu.Items.Add(item);
+        }
+        button.ContextMenu = menu;
+        button.Click += (_, _) => menu.Open(button);
+        return button;
+    }
+
+    private static string LocaleFlag(string locale) => locale switch
+    {
+        "de" => "🇩🇪",
+        "ja" => "🇯🇵",
+        "fr" => "🇫🇷",
+        "es" => "🇪🇸",
+        _ => "🇺🇸",
+    };
+
     private static Border MakeCreditsRow(CodexUsage.Core.Usage.CreditBalance credits)
     {
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-        var label = MakeSecondary("Credits");
+        var label = MakeSecondary(L.Get("Credits"));
         label.Foreground = new SolidColorBrush(Color.Parse("#339cff"));
         var roundedBalance = Math.Round(credits.Balance, 0, MidpointRounding.AwayFromZero);
-        var balance = MakeSecondary($"{roundedBalance:0} credits");
+        var balance = MakeSecondary(L.Get("CreditCount", roundedBalance));
         balance.FontWeight = FontWeight.Medium;
         Grid.SetColumn(balance, 1);
         grid.Children.Add(label);

@@ -1,6 +1,7 @@
 using CodexUsage.Core.Reset;
 using CodexUsage.Core.Ui;
 using CodexUsage.Core.Usage;
+using L = CodexUsage.Core.Localization.Localization;
 using System.Reflection;
 using System.Text.Json;
 
@@ -159,7 +160,18 @@ AssertEqual(
         """).Credits is null,
     "unlimited accounts do not show a purchased credit balance");
 
-Console.WriteLine("19 core status tests passed.");
+foreach (var locale in new[] { "en", "de", "ja", "fr", "es" })
+{
+    L.SetLocale(locale);
+    AssertEqual(true, L.Get("UsageRemaining").Length > 0, $"{locale} usage title is available");
+    AssertEqual(true, L.Get("CreditCount", 176).Length > 0, $"{locale} credit count is available");
+    AssertEqual(true, L.Get("ViewSource").Length > 0, $"{locale} source link is available");
+    AssertEqual(true, HudViewModel.FormatUsageReset(Window(50, now + TimeSpan.FromHours(2), 300), now).Length > 0,
+        $"{locale} reset formatting is available");
+}
+L.SetLocale("en");
+
+Console.WriteLine("39 core status tests passed.");
 
 static UsageSnapshot Snapshot(
     int fiveHourRemaining,

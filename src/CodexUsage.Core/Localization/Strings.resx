@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="UsageRemaining" xml:space="preserve"><value>Usage remaining</value></data>
+  <data name="FiveHour" xml:space="preserve"><value>5h</value></data>
+  <data name="Weekly" xml:space="preserve"><value>Weekly</value></data>
+  <data name="ResetsIn" xml:space="preserve"><value>resets in {0}</value></data>
+  <data name="ResetsDate" xml:space="preserve"><value>resets {0}</value></data>
+  <data name="Credits" xml:space="preserve"><value>Credits</value></data>
+  <data name="CreditCount" xml:space="preserve"><value>{0} credits</value></data>
+  <data name="LatestReset" xml:space="preserve"><value>Latest Codex reset</value></data>
+  <data name="ResetAnnounced" xml:space="preserve"><value>Reset announced</value></data>
+  <data name="WaitingForAccount" xml:space="preserve"><value>Waiting for your account…</value></data>
+  <data name="ResetConfirmed" xml:space="preserve"><value>Reset confirmed</value></data>
+  <data name="AnnouncedAgo" xml:space="preserve"><value>Announced {0} ago</value></data>
+  <data name="ViewSource" xml:space="preserve"><value>View Source</value></data>
+  <data name="LastReset" xml:space="preserve"><value>Last reset: {0} ago</value></data>
+  <data name="ResetUnavailable" xml:space="preserve"><value>Reset event unavailable</value></data>
+  <data name="ResetDue" xml:space="preserve"><value>reset due</value></data>
+  <data name="JustNow" xml:space="preserve"><value>just now</value></data>
+  <data name="LessThanMinute" xml:space="preserve"><value>&lt;1m</value></data>
+  <data name="Minutes" xml:space="preserve"><value>{0}m</value></data>
+  <data name="Hours" xml:space="preserve"><value>{0}h</value></data>
+  <data name="HoursMinutes" xml:space="preserve"><value>{0}h {1}m</value></data>
+  <data name="Days" xml:space="preserve"><value>{0}d</value></data>
+  <data name="LongMinutes" xml:space="preserve"><value>{0} minute(s)</value></data>
+  <data name="LongHours" xml:space="preserve"><value>{0} hour(s)</value></data>
+  <data name="LongDays" xml:space="preserve"><value>{0} day(s)</value></data>
+</root>

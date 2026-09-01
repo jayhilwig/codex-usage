@@ -1,10 +1,10 @@
-# Codex Usage plugin — Windows POC
+# Codex Usage plugin
 
 A Codex plugin that manages a separate, transparent companion window placing live Codex usage and public reset status immediately left of the Windows caption buttons. It does not patch, inject into, or alter the installed Codex app.
 
 The plugin manifest is `.codex-plugin/plugin.json`. Its `codex-usage-hud` skill starts, stops, or checks the native companion through `scripts/hud.ps1`. The operating-system overlay remains a separate process because Codex plugin UI cannot occupy the native Windows caption area.
 
-The proof of concept is implemented and live-verified on Windows. The shared code and Avalonia UI are cross-platform; the OS window-discovery layer is isolated behind `ICodexWindowTracker`. A named macOS adapter slot is present, but its CoreGraphics/Accessibility implementation is intentionally deferred until after the Windows POC.
+The Windows implementation is live-verified. macOS now has a native CoreGraphics/Accessibility tracking path and bundled self-contained helpers for USB testing; it still requires real-Mac verification. The OS window-discovery layer remains isolated behind `ICodexWindowTracker`.
 
 ## What the POC includes
 
@@ -41,7 +41,7 @@ src/CodexUsage.Desktop/
   Platform/ Windows tracker/interop, macOS adapter slot
 ```
 
-The macOS adapter can use `CGWindowListCopyWindowInfo` to find the Codex process/window and Accessibility APIs for reliable geometry/visibility. None of the usage, reset, persistence, resolver, or UI code needs to change.
+On macOS, `CGWindowListCopyWindowInfo` discovers the visible Codex process/window by bundle ID or executable path. When Accessibility is granted, AX APIs provide reliable geometry and minimized/hidden state. None of the usage, reset, persistence, resolver, or UI code changes.
 
 ## Exact data interfaces
 

@@ -1,5 +1,6 @@
 using CodexUsage.Core.Reset;
 using CodexUsage.Core.Usage;
+using L = CodexUsage.Core.Localization.Localization;
 
 namespace CodexUsage.Core.Ui;
 
@@ -46,27 +47,27 @@ public sealed class HudViewModel
     {
         if (window?.ResetsAt is not { } reset)
         {
-            return "reset unavailable";
+            return L.Get("WaitingForAccount");
         }
 
         var until = reset - now;
         if (until <= TimeSpan.Zero)
         {
-            return "reset due";
+            return L.Get("ResetDue");
         }
 
         if (until <= TimeSpan.FromHours(24))
         {
-            return $"resets in {FormatDuration(until)}";
+            return L.Get("ResetsIn", FormatDuration(until));
         }
 
-        return $"resets {reset.ToLocalTime():MMM d}";
+        return L.Get("ResetsDate", FormatDate(reset));
     }
 
     public static string FormatAge(DateTimeOffset timestamp, DateTimeOffset now)
     {
         var age = now - timestamp;
-        return age <= TimeSpan.Zero ? "just now" : $"{FormatDuration(age)} ago";
+        return age <= TimeSpan.Zero ? L.Get("JustNow") : FormatLongDuration(age);
     }
 
     public static string FormatLongAge(DateTimeOffset timestamp, DateTimeOffset now)
@@ -74,23 +75,20 @@ public sealed class HudViewModel
         var age = now - timestamp;
         if (age <= TimeSpan.Zero)
         {
-            return "just now";
+            return L.Get("JustNow");
         }
 
         if (age.TotalMinutes < 60)
         {
-            var minutes = Math.Max(1, (int)Math.Round(age.TotalMinutes));
-            return $"{minutes} minute{(minutes == 1 ? string.Empty : "s")} ago";
+            return L.Get("AnnouncedAgo", FormatLongDuration(age));
         }
 
         if (age.TotalHours < 24)
         {
-            var hours = Math.Max(1, (int)Math.Floor(age.TotalHours));
-            return $"{hours} hour{(hours == 1 ? string.Empty : "s")} ago";
+            return L.Get("AnnouncedAgo", FormatLongDuration(age));
         }
 
-        var days = Math.Max(1, (int)Math.Floor(age.TotalDays));
-        return $"{days} day{(days == 1 ? string.Empty : "s")} ago";
+        return L.Get("AnnouncedAgo", FormatLongDuration(age));
     }
 
     public static string SummarizeAnnouncement(string text)
@@ -100,7 +98,7 @@ public sealed class HudViewModel
             text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         if (normalized.Length == 0)
         {
-            return "Reset announced for Codex users.";
+            return L.Get("ResetAnnounced");
         }
 
         var sentenceEnd = normalized.IndexOfAny(['.', '!', '?']);
@@ -113,21 +111,51 @@ public sealed class HudViewModel
     {
         if (duration.TotalMinutes < 1)
         {
-            return "<1m";
+            return L.Get("LessThanMinute");
         }
 
         if (duration.TotalHours < 1)
         {
-            return $"{Math.Max(1, (int)Math.Round(duration.TotalMinutes))}m";
+            return L.Get("Minutes", Math.Max(1, (int)Math.Round(duration.TotalMinutes)));
         }
 
         if (duration.TotalDays < 1)
         {
             var hours = (int)duration.TotalHours;
             var minutes = duration.Minutes;
-            return minutes == 0 ? $"{hours}h" : $"{hours}h {minutes}m";
+            return minutes == 0
+                ? L.Get("Hours", hours)
+                : L.Get("HoursMinutes", hours, minutes);
         }
 
-        return $"{(int)duration.TotalDays}d";
+        return L.Get("Days", (int)duration.TotalDays);
+    }
+
+    private static string FormatLongDuration(TimeSpan age)
+    {
+        if (age.TotalMinutes < 60)
+        {
+            return L.Get("LongMinutes", Math.Max(1, (int)Math.Round(age.TotalMinutes)));
+        }
+
+        if (age.TotalHours < 24)
+        {
+            return L.Get("LongHours", Math.Max(1, (int)Math.Floor(age.TotalHours)));
+        }
+
+        return L.Get("LongDays", Math.Max(1, (int)Math.Floor(age.TotalDays)));
+    }
+
+    private static string FormatDate(DateTimeOffset reset)
+    {
+        var local = reset.ToLocalTime();
+        var pattern = L.Locale switch
+        {
+            "de" => "d. MMM",
+            "ja" => "M月d日",
+            "fr" or "es" => "d MMM",
+            _ => "MMM d",
+        };
+        return local.ToString(pattern, L.Culture);
     }
 }
