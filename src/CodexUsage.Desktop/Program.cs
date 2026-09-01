@@ -9,5 +9,9 @@ internal static class Program
 
     public static AppBuilder BuildAvaloniaApp() => AppBuilder
         .Configure<App>()
+        .With(new MacOSPlatformOptions
+        {
+            ShowInDock = false,
+        })
         .UsePlatformDetect();
 }

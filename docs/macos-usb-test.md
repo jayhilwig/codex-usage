@@ -12,7 +12,7 @@ This is an unsigned development build. It is self-contained: the target Mac does
    The installer uses `codex` on PATH, or the bundled ChatGPT path at `/Applications/ChatGPT.app/Contents/Resources/codex`. It safely reinstalls only this local test marketplace and plugin.
 
 3. Open a new Codex task and use `@Codex Usage Start!`. The installer prepares the matching bundled `.app`; the launcher selects the correct Mac architecture.
-4. When Codex Usage asks for Accessibility access, enable **Codex Usage** in **System Settings → Privacy & Security → Accessibility**. It will continue automatically when access is granted.
+4. Codex Usage uses window metadata only. It should not request Accessibility or Screen Recording access.
 5. If Gatekeeper blocks the unsigned app, use **System Settings → Privacy & Security → Open Anyway**, or remove quarantine only from the copied local app bundle:
 
    ```sh
@@ -23,4 +23,4 @@ This is an unsigned development build. It is self-contained: the target Mac does
 
 Use `sh ~/Applications/CodexUsage/plugins/codex-usage/scripts/hud.sh Status` or `Stop` to manage the single helper instance.
 
-Real-Mac verification remains required for the Accessibility prompt, Codex process identity, window geometry, Retina placement, and unsigned-helper behavior.
+Real-Mac verification covers Codex process identity, window geometry, Retina placement, popovers, Exit behavior, and unsigned-helper launch behavior.

@@ -52,6 +52,8 @@ foreach ($runtime in $runtimes) {
   <string>$bundleVersion</string>
   <key>LSMinimumSystemVersion</key>
   <string>11.0</string>
+  <key>LSUIElement</key>
+  <true/>
   <key>NSHighResolutionCapable</key>
   <true/>
 </dict>

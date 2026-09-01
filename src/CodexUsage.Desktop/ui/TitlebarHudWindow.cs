@@ -22,6 +22,7 @@ internal sealed class TitlebarHudWindow : Window
     private readonly Border _surfaceRoot;
     private readonly Border _usageButton;
     private readonly Border _resetButton;
+    private readonly ContextMenu _exitMenu;
     private readonly TextBlock _fiveHourText;
     private readonly TextBlock _separatorText;
     private readonly TextBlock _weeklyText;
@@ -59,6 +60,11 @@ internal sealed class TitlebarHudWindow : Window
         _separatorText = MakeHudText(" · ");
         _weeklyText = MakeHudText("W --");
         _resetText = MakeHudText("↺");
+        if (OperatingSystem.IsMacOS())
+        {
+            _resetText.FontSize *= 1.25;
+            _resetText.LineHeight = 16;
+        }
         _resetText.Margin = new Thickness(0, -1, 0, 0);
 
         var usageLine = new StackPanel
@@ -76,21 +82,40 @@ internal sealed class TitlebarHudWindow : Window
         var panel = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
+            HorizontalAlignment = OperatingSystem.IsMacOS()
+                ? HorizontalAlignment.Left
+                : HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
             Spacing = 0,
             Children = { _usageButton, _resetButton },
         };
 
         var exit = new MenuItem { Header = "Exit Codex Usage" };
-        exit.Click += (_, _) => shutdown();
-        panel.ContextMenu = new ContextMenu { Items = { exit } };
+        _exitMenu = new ContextMenu { Items = { exit } };
+        exit.Click += (_, _) =>
+        {
+            if (OperatingSystem.IsMacOS())
+            {
+                _exitMenu.Close();
+            }
+
+            shutdown();
+        };
+        panel.ContextMenu = _exitMenu;
+        if (OperatingSystem.IsMacOS())
+        {
+            Deactivated += (_, _) => _exitMenu.Close();
+        }
         _surfaceRoot = new Border
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
             Child = panel,
         };
+        if (OperatingSystem.IsMacOS())
+        {
+            _surfaceRoot.ContextMenu = _exitMenu;
+        }
         _platformHud.ConfigureRoot(_surfaceRoot);
         Content = _surfaceRoot;
 
@@ -100,7 +125,10 @@ internal sealed class TitlebarHudWindow : Window
         L.Changed += (_, _) => Dispatcher.UIThread.Post(ApplyViewModel);
 
         Opened += (_, _) => ConfigureNativeWindow();
-        _trackerTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(100), DispatcherPriority.Normal, TrackTarget);
+        var trackingInterval = OperatingSystem.IsMacOS()
+            ? TimeSpan.FromMilliseconds(200)
+            : TimeSpan.FromMilliseconds(100);
+        _trackerTimer = new DispatcherTimer(trackingInterval, DispatcherPriority.Normal, TrackTarget);
         _trackerTimer.Start();
         ApplyViewModel();
     }
@@ -237,6 +265,13 @@ internal sealed class TitlebarHudWindow : Window
     private void PositionPopovers(int x, int y, int width, int height, double scale)
     {
         var gap = (int)Math.Round(6 * scale);
+        if (OperatingSystem.IsMacOS())
+        {
+            PositionMacPopover(_usagePopover, _usageButton, alignRight: false, x, y, scale, gap);
+            PositionMacPopover(_resetPopover, _resetButton, alignRight: true, x, y, scale, gap);
+            return;
+        }
+
         if (_usagePopover.IsVisible)
         {
             var popupWidth = (int)Math.Round(_usagePopover.Width * scale);
@@ -248,6 +283,68 @@ internal sealed class TitlebarHudWindow : Window
             var popupWidth = (int)Math.Round(_resetPopover.Width * scale);
             _resetPopover.Position = new PixelPoint(x + width - popupWidth, y + height + gap);
         }
+    }
+
+    private void PositionMacPopover(
+        Window popup,
+        Control anchor,
+        bool alignRight,
+        int hudX,
+        int hudY,
+        double scale,
+        int gap)
+    {
+        if (!popup.IsVisible || _target is null)
+        {
+            return;
+        }
+
+        var anchorOrigin = anchor.TranslatePoint(default, this) ?? default;
+        var anchorLeft = hudX + (int)Math.Round(anchorOrigin.X * scale);
+        var anchorTop = hudY + (int)Math.Round(anchorOrigin.Y * scale);
+        var anchorWidth = (int)Math.Round(anchor.Bounds.Width * scale);
+        var anchorHeight = (int)Math.Round(anchor.Bounds.Height * scale);
+        var popupWidth = (int)Math.Round(popup.Width * scale);
+        var popupHeight = (int)Math.Ceiling(popup.Bounds.Height * scale);
+        if (popupHeight <= 0)
+        {
+            return;
+        }
+
+        var bounds = _target.Bounds;
+        var edgeMargin = (int)Math.Round(8 * scale);
+        var desiredX = alignRight
+            ? anchorLeft + anchorWidth - popupWidth
+            : anchorLeft;
+        var minX = bounds.Left + edgeMargin;
+        var maxX = Math.Max(minX, bounds.Right - edgeMargin - popupWidth);
+        var popupX = Math.Clamp(desiredX, minX, maxX);
+
+        var belowY = anchorTop + anchorHeight + gap;
+        var aboveY = anchorTop - gap - popupHeight;
+        var desiredY = belowY + popupHeight <= bounds.Bottom - edgeMargin
+            ? belowY
+            : aboveY;
+        var minY = bounds.Top + edgeMargin;
+        var maxY = Math.Max(minY, bounds.Bottom - edgeMargin - popupHeight);
+        var popupY = Math.Clamp(desiredY, minY, maxY);
+        popup.Position = new PixelPoint(popupX, popupY);
+    }
+
+    private void PositionVisiblePopovers()
+    {
+        if (_target is null)
+        {
+            return;
+        }
+
+        var scale = Math.Max(1, _target.DisplayScale);
+        PositionPopovers(
+            Position.X,
+            Position.Y,
+            (int)Math.Round(HudWidth * scale),
+            (int)Math.Round(HudHeight * scale),
+            scale);
     }
 
     private void ConfigureNativeWindow()
@@ -271,6 +368,7 @@ internal sealed class TitlebarHudWindow : Window
 
         _usagePopover.Update(_viewModel);
         _usagePopover.ShowFor(this);
+        Dispatcher.UIThread.Post(PositionVisiblePopovers, DispatcherPriority.Background);
     }
 
     private void ToggleResetPopover()
@@ -284,6 +382,7 @@ internal sealed class TitlebarHudWindow : Window
 
         _resetPopover.Update(_viewModel);
         _resetPopover.ShowFor(this);
+        Dispatcher.UIThread.Post(PositionVisiblePopovers, DispatcherPriority.Background);
     }
 
     private void ApplyViewModel()

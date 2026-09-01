@@ -19,7 +19,7 @@ internal abstract class CompanionPopoverWindow : Window
         CanResize = false;
         ShowInTaskbar = false;
         ShowActivated = true;
-        Topmost = false;
+        Topmost = OperatingSystem.IsMacOS();
         WindowDecorations = Avalonia.Controls.WindowDecorations.None;
         WindowStartupLocation = WindowStartupLocation.Manual;
         Background = Brushes.Transparent;

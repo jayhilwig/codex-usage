@@ -5,13 +5,13 @@ description: Start, stop, or check the local Codex title-bar usage companion. Us
 
 # Codex Usage
 
-Manage the native companion through the bundled platform launcher, resolved relative to this skill directory.
+Manage the native companion through the platform launcher resolved relative to this skill directory.
 
-- Windows: run `scripts/hud.ps1 -Action Start|Stop|Status`.
-- macOS: run `sh scripts/hud.sh Start|Stop|Status`.
+- Windows: run `../../scripts/hud.ps1 -Action Start|Stop|Status`.
+- macOS: run `sh ../../scripts/hud.sh Start|Stop|Status`.
 - Restart: stop, then start.
 
-The launchers use the bundled self-contained helper for the matching OS/architecture. Keep the response concise; do not narrate implementation details unless an error occurs.
+Packaged installs use the bundled self-contained helper for the matching OS/architecture. A macOS source checkout falls back to its local .NET SDK. Keep the response concise; do not narrate implementation details unless an error occurs.
 
 Do not read, display, or transmit Codex credentials. Do not send local usage data to any third party. The overlay itself makes only the existing anonymous request to the public codex-resets.com API.
 

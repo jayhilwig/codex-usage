@@ -1,31 +1,32 @@
-# Codex Usage plugin
+# Codex Usage title-bar plugin
 
-A Codex plugin that manages a separate, transparent companion window placing live Codex usage and public reset status immediately left of the Windows caption buttons. It does not patch, inject into, or alter the installed Codex app.
+A Codex plugin that manages a separate companion window placing live Codex usage and public reset status left of the caption buttons on Windows and above the lower-left account row on macOS. It does not patch, inject into, or alter the installed Codex app.
 
-The plugin manifest is `.codex-plugin/plugin.json`. Its `codex-usage-hud` skill starts, stops, or checks the native companion through `scripts/hud.ps1`. The operating-system overlay remains a separate process because Codex plugin UI cannot occupy the native Windows caption area.
+The plugin manifest is `.codex-plugin/plugin.json`. Its `codex-usage-hud` skill starts, stops, or checks the native companion through `scripts/hud.ps1` on Windows or `scripts/hud.sh` on macOS. The operating-system overlay remains a separate process because Codex plugin UI cannot occupy these native app regions.
 
-The Windows implementation is live-verified. macOS now has a native CoreGraphics/Accessibility tracking path and bundled self-contained helpers for USB testing; it still requires real-Mac verification. The OS window-discovery layer remains isolated behind `ICodexWindowTracker`.
+Both implementations are live-verified. The Windows implementation remains isolated and unchanged by the Mac host. macOS uses CoreGraphics window metadata and the Codex bundle identifier (`com.openai.codex`) without requesting Accessibility or Screen Recording access. Packaged builds contain self-contained helpers for all supported architectures.
 
 ## What the POC includes
 
 - Finds the packaged Codex desktop window (`OpenAI.Codex_*\\app\\ChatGPT.exe`) or an unpackaged `OpenAI\\Codex\\Codex.exe` window.
 - Renders `5h -- · W -- ↺`, then updates it with real remaining percentages.
-- Uses an owned, borderless, no-activate window so it stays above Codex without becoming globally topmost.
-- Polls window geometry every 100 ms, follows moves/resizes, handles per-monitor DPI, and hides when Codex is minimized, cloaked, or not visible.
+- Uses an owned, borderless, no-activate window on Windows and a floating auxiliary panel on macOS.
+- Polls window geometry every 100 ms on Windows and 200 ms on macOS, follows moves/resizes, handles platform display coordinates, and hides when Codex is not visible.
 - Opens compact usage and reset cards from the two control regions.
 - Uses the platform's native system UI font and compact white, softly shadowed popovers that dismiss when focus moves outside them.
 - Reads Codex usage over app-server stdio and reacts to `account/rateLimits/updated` (plus a one-minute fallback refresh).
 - Reads the documented anonymous reset endpoint every five minutes, with ETag support and last-success caching.
-- Persists only sanitized usage snapshots, public reset data, and a confirmed-event marker under `%LOCALAPPDATA%\\CodexUsageHud\\state.json`.
+- Persists only sanitized usage snapshots, public reset data, locale preferences, and a confirmed-event marker under the platform's local application-data directory.
 - Keeps Codex credentials local. The only third-party request is `GET https://codex-resets.com/api/v1/status`.
 
 The three V1 preference controls (launch with Windows, show reset indicator, show usage HUD) are deliberately not in this first POC. There is no installer, updater, tray app, analytics, telemetry, account system, or dashboard. Right-click the HUD to exit it.
 
 ## Stack
 
-- **.NET 10 / C#** for a small native process, async stdio JSON handling, and direct Windows interop without a browser runtime.
+- **.NET 10 / C#** for a small native process, async stdio JSON handling, and direct platform interop without a browser runtime.
 - **Avalonia 12.1.1** for one UI implementation that can run on Windows and macOS. Only the platform window tracker is OS-specific.
 - **Win32 + DWM APIs** for top-level window enumeration, process-path identification, caption-button bounds, minimized/cloaked state, dark-mode hint, ownership, and physical-pixel positioning.
+- **CoreGraphics + AppKit metadata** for permission-free macOS window discovery, frontmost-app checks, and auxiliary-panel behavior.
 
 This keeps the cross-platform boundary explicit:
 
@@ -37,11 +38,11 @@ src/CodexUsage.Core/
   ui/     platform-neutral HUD view model and time formatting
 
 src/CodexUsage.Desktop/
-  ui/       Avalonia title-bar HUD and both popovers
-  Platform/ Windows tracker/interop, macOS adapter slot
+  ui/       Avalonia HUD and both popovers
+  Platform/ isolated Windows and macOS trackers/hosts/interops
 ```
 
-On macOS, `CGWindowListCopyWindowInfo` discovers the visible Codex process/window by bundle ID or executable path. When Accessibility is granted, AX APIs provide reliable geometry and minimized/hidden state. None of the usage, reset, persistence, resolver, or UI code changes.
+On macOS, `CGWindowListCopyWindowInfo` provides owner PID, geometry, ordering, and visibility, then `NSRunningApplication.bundleIdentifier` verifies Codex. It does not inspect pixels or the accessibility tree. A backed, left-aligned strip follows the lower-left account area, and its popovers remain clamped inside the Codex window.
 
 ## Exact data interfaces
 
@@ -105,7 +106,7 @@ A confirmed event remains green for six hours. The resolver never treats the pub
 
 ## Run
 
-Requirements: Windows 10/11, .NET 10 SDK, a current signed-in Codex CLI on `PATH`, and the Codex desktop window running.
+Source requirements: Windows 10/11 or macOS 13+, .NET 10 SDK, a current signed-in Codex CLI on `PATH`, and the Codex desktop window running. Packaged self-contained helpers do not require .NET on the target machine.
 
 ```powershell
 dotnet restore src\CodexUsage.Desktop\CodexUsage.Desktop.csproj
@@ -118,7 +119,15 @@ After a build, you can also launch the companion directly while Codex is open:
 .\src\CodexUsage.Desktop\bin\Debug\net10.0\CodexUsage.Desktop.exe
 ```
 
-Keep the executable with the other files in its output directory; this POC is not packaged as a single-file app yet.
+On macOS, use the development launcher from a source checkout:
+
+```sh
+sh scripts/hud.sh Start
+sh scripts/hud.sh Status
+sh scripts/hud.sh Stop
+```
+
+`scripts/publish-package.ps1` produces self-contained Windows and macOS helpers plus the USB-test package.
 
 If `codex` is not on `PATH`, set `CODEX_HUD_CODEX_PATH` to the executable path before launching. Right-click the HUD and choose **Exit Codex Usage**, or stop the foreground `dotnet run` process with Ctrl+C.
 
@@ -132,11 +141,13 @@ dotnet run --project tests\CodexUsage.Core.Tests\CodexUsage.Core.Tests.csproj
 
 - Debug build: clean, zero warnings/errors.
 - Live Codex window detection: packaged Windows app found by executable path.
+- Live macOS window detection: Codex found by bundle identifier using permission-free CoreGraphics metadata.
 - Live usage: real percentages and reset times displayed from app-server.
 - Live public status: current `/api/v1/status` response parsed successfully.
 - Move following: a temporary `160,80` Codex move produced the same `160,80` HUD delta, then the original placement was restored.
 - Minimize behavior: zero visible HUD windows while Codex was minimized; one returned after restore.
 - Baseline visual capture: the original HUD and both popovers rendered in the intended title-bar location at the active display scale. The current typography/popover refinement builds cleanly; a fresh interactive capture was unavailable from the non-interactive validation session.
+- macOS visual verification: the lower-left backed strip, click-anchored popovers, hidden Dock icon, outside-click dismissal, and persistent Exit lifecycle were tested on a real Mac.
 - Resolver harness: six cases pass (offline, announced, confirmed, natural-reset exclusion, stale event, strong watch).
 
 ## Documented vs. packaging-specific behavior

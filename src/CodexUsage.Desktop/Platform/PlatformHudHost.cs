@@ -96,8 +96,12 @@ internal sealed class WindowsHudHost : IPlatformHudHost
 
 internal sealed class MacHudHost : IPlatformHudHost
 {
+    private const double SidebarLeftInset = 16;
+    private const double AccountRowHeight = 56;
+
     public void Initialize(Window window)
     {
+        window.Topmost = true;
         window.Background = Brushes.Transparent;
         window.TransparencyBackgroundFallback = Brushes.Transparent;
         window.TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
@@ -111,24 +115,42 @@ internal sealed class MacHudHost : IPlatformHudHost
         TextOptions.SetBaselinePixelAlignment(textBlock, BaselinePixelAlignment.Aligned);
     }
 
-    public void ConfigureRoot(Border root) => root.Background = Brushes.Transparent;
+    public void ConfigureRoot(Border root)
+    {
+        root.Padding = new Thickness(3, 0);
+        root.BorderThickness = new Thickness(1);
+        root.CornerRadius = new CornerRadius(7);
+        root.Background = new SolidColorBrush(Color.Parse("#F02B2B2B"));
+        root.BorderBrush = new SolidColorBrush(Color.Parse("#35FFFFFF"));
+    }
 
     public void ApplyTheme(Window window, Border root, CodexWindowSnapshot? target)
     {
+        var dark = target?.IsDarkMode ?? true;
+        root.Background = new SolidColorBrush(
+            Color.Parse(dark ? "#F02B2B2B" : "#F0F4F4F4"));
+        root.BorderBrush = new SolidColorBrush(
+            Color.Parse(dark ? "#35FFFFFF" : "#24000000"));
     }
 
     public void ConfigureNativeWindow(Window window, CodexWindowSnapshot target)
     {
+#pragma warning disable CS0618 // Safe while the Avalonia window is open on the UI thread.
+        var platformHandle = window.TryGetPlatformHandle();
+        var nativeWindow = (platformHandle as IMacOSTopLevelPlatformHandle)?.NSWindow ?? nint.Zero;
+#pragma warning restore CS0618
+        MacOverlayInterop.ConfigureHud(nativeWindow);
     }
 
     public PixelPoint GetPosition(CodexWindowSnapshot target, int width, int height)
     {
         var scale = Math.Max(1, target.DisplayScale);
-        var sideInset = (int)Math.Round(12 * scale);
-        var topInset = (int)Math.Round(5 * scale);
+        var sideInset = (int)Math.Round(SidebarLeftInset * scale);
+        var accountRowHeight = (int)Math.Round(AccountRowHeight * scale);
+        var margin = (int)Math.Round(8 * scale);
         return new PixelPoint(
-            Math.Max(target.Bounds.Left + sideInset, target.Bounds.Right - sideInset - width),
-            target.Bounds.Top + topInset);
+            target.Bounds.Left + sideInset,
+            target.Bounds.Bottom - accountRowHeight - margin - height);
     }
 
     public void Position(Window window, int x, int y, int width, int height) =>
